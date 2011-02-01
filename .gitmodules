@@ -1,0 +1,9 @@
+[submodule "lib/vendor/doctrine-mongodb-odm"]
+	path = lib/vendor/doctrine-mongodb-odm
+	url = git://github.com/doctrine/mongodb-odm.git
+[submodule "lib/vendor/doctrine-common"]
+	path = lib/vendor/doctrine-common
+	url = git://github.com/doctrine/common.git
+[submodule "lib/vendor/doctrine-mongodb"]
+	path = lib/vendor/doctrine-mongodb
+	url = git://github.com/doctrine/mongodb.git
