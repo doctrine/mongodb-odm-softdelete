@@ -112,3 +112,23 @@ to the database:
 
     $sdm->delete($fabpot);
     $sdm->flush();
+
+## Querying for Documents
+
+Create a query builder that excludes deleted documents:
+
+    $qb = $sdm->createQueryBuilder();
+
+Create a query builder that returns only deleted documents:
+
+    $qb = $sdm->createDeletedQueryBuilder();
+
+If you want to modify an existing query builder to only return not deleted documents, or to only return
+deleted documents, you can use the filterQueryBuilder() method:
+
+    $qb = $dm->createQueryBuilder();
+    $sdm->filterQueryBuilder(SoftDeleteManager::QUERY_NOT_DELETED, $qb);
+
+Or you can show only deleted:
+
+    $sdm->filterQueryBuilder(SoftDeleteManager::QUERY_DELETED, $qb);

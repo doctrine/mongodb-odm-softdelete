@@ -20,6 +20,7 @@
 namespace Doctrine\ODM\MongoDB\SoftDelete;
 
 use Doctrine\ODM\MongoDB\DocumentManager;
+use Doctrine\ODM\MongoDB\Query\Builder;
 use Doctrine\Common\EventManager;
 
 /**
@@ -32,6 +33,16 @@ use Doctrine\Common\EventManager;
  */
 class SoftDeleteManager
 {
+    /**
+     * Query for DELETED documents constant.
+     */
+    const QUERY_DELETED = 2;
+
+    /**
+     * Query for NOT_DELETED documents constant.
+     */
+    const QUERY_NOT_DELETED = 3;
+
     /**
      * DocumentManager instance this object wraps.
      *
@@ -126,9 +137,10 @@ class SoftDeleteManager
      */
     public function createQueryBuilder($documentName = null)
     {
-        return $this->dm->createQueryBuilder($documentName)
-            ->field($this->config->getDeletedFieldName())
-            ->exists(false);
+        return $this->filterQueryBuilder(
+            self::QUERY_NOT_DELETED,
+            $this->dm->createQueryBuilder($documentName)
+        );
     }
 
     /**
@@ -140,9 +152,30 @@ class SoftDeleteManager
      */
     public function createDeletedQueryBuilder($documentName = null)
     {
-        return $this->dm->createQueryBuilder($documentName)
-            ->field($this->config->getDeletedFieldName())
-            ->exists(true);
+        return $this->filterQueryBuilder(
+            self::QUERY_DELETED,
+            $this->dm->createQueryBuilder($documentName)
+        );
+    }
+
+    /**
+     * Filter query builder instances to exclude deleted documents.
+     *
+     * @param string $type
+     * @param Builder $qb
+     */
+    public function filterQueryBuilder($type, Builder $qb)
+    {
+        switch ($type) {
+            case self::QUERY_DELETED:
+                $qb->field($this->config->getDeletedFieldName())->exists(true);
+                break;
+
+            case self::QUERY_NOT_DELETED:
+                $qb->field($this->config->getDeletedFieldName())->exists(false);
+                break;
+        }
+        return $qb;
     }
 
     /**
