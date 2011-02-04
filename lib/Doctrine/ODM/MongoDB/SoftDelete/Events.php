@@ -49,11 +49,11 @@ final class Events
     /**
      * Invoked before a documents soft delete is removed and document restored in the database.
      */
-    const preSoftDeleteRestore = 'preSoftDeleteRestore';
+    const preRestore = 'preRestore';
 
     /**
      * Invoked after a documents soft delete is removed and document restored in the database.
      */
-    const postSoftDeleteRestore = 'postSoftDeleteRestore';
+    const postRestore = 'postRestore';
 
 }

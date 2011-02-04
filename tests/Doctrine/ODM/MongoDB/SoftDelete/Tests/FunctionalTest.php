@@ -148,7 +148,7 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
         $this->sdm->restore($softDeleteable);
         $this->sdm->flush();
 
-        $this->assertEquals(array('preSoftDeleteRestore', 'postSoftDeleteRestore'), $eventSubscriber->called);
+        $this->assertEquals(array('preRestore', 'postRestore'), $eventSubscriber->called);
     }
 
     private function getTestDocumentManager()
@@ -212,14 +212,14 @@ class TestEventSubscriber implements \Doctrine\Common\EventSubscriber
         $this->called[] = 'postSoftDelete';
     }
 
-    public function preSoftDeleteRestore(LifecycleEventArgs $args)
+    public function preRestore(LifecycleEventArgs $args)
     {
-        $this->called[] = 'preSoftDeleteRestore';
+        $this->called[] = 'preRestore';
     }
 
-    public function postSoftDeleteRestore(LifecycleEventArgs $args)
+    public function postRestore(LifecycleEventArgs $args)
     {
-        $this->called[] = 'postSoftDeleteRestore';
+        $this->called[] = 'postRestore';
     }
 
     public function getSubscribedEvents()
@@ -227,8 +227,8 @@ class TestEventSubscriber implements \Doctrine\Common\EventSubscriber
         return array(
             Events::preSoftDelete,
             Events::postSoftDelete,
-            Events::preSoftDeleteRestore,
-            Events::postSoftDeleteRestore
+            Events::preRestore,
+            Events::postRestore
         );
     }
 }

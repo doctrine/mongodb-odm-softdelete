@@ -320,8 +320,8 @@ class UnitOfWork
             $persister = $this->getDocumentPersister($className);
             foreach ($documents as $document) {
 
-                if ($this->eventManager->hasListeners(Events::preSoftDeleteRestore)) {
-                    $this->eventManager->dispatchEvent(Events::preSoftDeleteRestore, new Event\LifecycleEventArgs($document, $this->sdm));
+                if ($this->eventManager->hasListeners(Events::preRestore)) {
+                    $this->eventManager->dispatchEvent(Events::preRestore, new Event\LifecycleEventArgs($document, $this->sdm));
                 }
 
                 $persister->addRestore($document);
@@ -333,8 +333,8 @@ class UnitOfWork
             foreach ($documents as $document) {
                 $class->setFieldValue($document, $deletedFieldName, null);
 
-                if ($this->eventManager->hasListeners(Events::postSoftDeleteRestore)) {
-                    $this->eventManager->dispatchEvent(Events::postSoftDeleteRestore, new Event\LifecycleEventArgs($document, $this->sdm));
+                if ($this->eventManager->hasListeners(Events::postRestore)) {
+                    $this->eventManager->dispatchEvent(Events::postRestore, new Event\LifecycleEventArgs($document, $this->sdm));
                 }
             }
         }

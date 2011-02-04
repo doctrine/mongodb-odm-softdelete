@@ -83,8 +83,8 @@ We trigger some additional event lifecycle events when documents are soft delete
 
 * Events::preSoftDelete
 * Events::postSoftDelete
-* Events::preSoftDeleteRestore
-* Events::postSoftDeleteRestore
+* Events::preRestore
+* Events::postRestore
 
 Using the events is easy, just define a class like the following:
 
