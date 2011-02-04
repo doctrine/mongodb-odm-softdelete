@@ -212,10 +212,6 @@ class UnitOfWork
      */
     public function delete(SoftDeleteable $document)
     {
-        if ($document->isDeleted() === true) {
-            throw new InvalidArgumentException('Document is already deleted.');
-        }
-
         $oid = spl_object_hash($document);
         if (isset($this->documentDeletes[$oid])) {
             throw new InvalidArgumentException('Document is already scheduled for delete.');
@@ -235,10 +231,6 @@ class UnitOfWork
      */
     public function restore(SoftDeleteable $document)
     {
-        if ($document->isDeleted() === false) {
-            throw new InvalidArgumentException('Document must be already deleted or scheduled for delete in order to be restored.');
-        }
-
         $oid = spl_object_hash($document);
         if (isset($this->documentRestores[$oid])) {
             throw new InvalidArgumentException('Document is already scheduled for restore.');
