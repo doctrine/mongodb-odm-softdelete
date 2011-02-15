@@ -22,6 +22,8 @@ namespace Doctrine\ODM\MongoDB\SoftDelete;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Query\Builder;
 use Doctrine\Common\EventManager;
+use DateTime;
+use MongoDate;
 
 /**
  * The SoftDeleteManager class is responsible for managing the deleted state of a SoftDeleteable instance.
@@ -34,35 +36,18 @@ use Doctrine\Common\EventManager;
 class SoftDeleteManager
 {
     /**
-     * Query for DELETED documents constant.
-     */
-    const QUERY_DELETED = 2;
-
-    /**
-     * Query for NOT_DELETED documents constant.
-     */
-    const QUERY_NOT_DELETED = 3;
-
-    /**
-     * DocumentManager instance this object wraps.
+     * The DocumentManager instance.
      *
      * @var DocumentManager $dm
      */
     private $dm;
 
     /**
-     * The SoftDelete Configuration instance.
+     * The SoftDelete configuration instance/
      *
-     * @var Configuration $config
+     * @var Configuration $configuration
      */
-    private $config;
-
-    /**
-     * The SoftDelete UnitOfWork instance.
-     *
-     * @var UnitOfWork $unitOfWork
-     */
-    private $unitOfWork;
+    private $configuration;
 
     /**
      * The EventManager instance used for managing events.
@@ -72,24 +57,55 @@ class SoftDeleteManager
     private $eventManager;
 
     /**
-     * Constructs a new SoftDeleteManager instance.
+     * Array of scheduled document deletes.
+     *
+     * @var array
+     */
+    private $documentDeletes = array();
+
+    /**
+     * Array of scheduled document restores.
+     *
+     * @var array
+     */
+    private $documentRestores = array();
+
+    /**
+     * Array of special criteria to delete by.
+     *
+     * @var array
+     */
+    private $deleteBy = array();
+
+    /**
+     * Array of special criteria to restore by.
+     *
+     * @var array
+     */
+    private $restoreBy = array();
+
+    /**
+     * Array of lazily instantiated soft delete document persisters.
+     *
+     * @var string
+     */
+    private $persisters = array();
+
+    /**
+     * Constructs a new UnitOfWork instance.
      *
      * @param DocumentManager $dm
      * @param Configuration $configuration
-     * @param UnitOfWork $unitOfWork
      */
-    public function __construct(DocumentManager $dm, Configuration $configuration, UnitOfWork $unitOfWork, EventManager $eventManager = null)
+    public function __construct(DocumentManager $dm, Configuration $configuration, EventManager $eventManager)
     {
         $this->dm = $dm;
-        $this->config = $configuration;
-        $this->unitOfWork = $unitOfWork;
-        $this->eventManager = $eventManager ?: new EventManager();
-        $this->unitOfWork->setEventManager($this->eventManager);
-        $this->unitOfWork->setSoftDeleteManager($this);
+        $this->configuration = $configuration;
+        $this->eventManager = $eventManager;
     }
 
     /**
-     * Gets the DocumentManager
+     * Gets the DocumentManager instance
      *
      * @return DocumentManager $dm
      */
@@ -99,27 +115,17 @@ class SoftDeleteManager
     }
 
     /**
-     * Gets the Configuration
+     * Gets the Configuration instance.
      *
-     * @return Configuration $config
+     * @return Configuration $configuration
      */
     public function getConfiguration()
     {
-        return $this->config;
+        return $this->configuration;
     }
 
     /**
-     * Gets the UnitOfWork
-     *
-     * @return UnitOfWork $unitOfWork
-     */
-    public function getUnitOfWork()
-    {
-        return $this->unitOfWork;
-    }
-
-    /**
-     * Gets the EventManager
+     * Gets the EventManager instance/
      *
      * @return EventManager $eventManager
      */
@@ -129,88 +135,238 @@ class SoftDeleteManager
     }
 
     /**
-     * Creates a new query builder instance that will automatically exclude deleted documents
-     * by adding a { deletedAt : { $exists : false } } condition.
+     * Gets the array of scheduled document deletes.
      *
-     * @param string $documentName The document class name to create the query builder for.
-     * @return Doctrine\MongoDB\ODM\Query\Builder $qb
+     * @return array $documentDeletes
      */
-    public function createQueryBuilder($documentName = null)
+    public function getDocumentDeletes()
     {
-        return $this->filterQueryBuilder(
-            self::QUERY_NOT_DELETED,
-            $this->dm->createQueryBuilder($documentName)
-        );
+        return $this->documentDeletes;
     }
 
     /**
-     * Creates a new query builder instance that will return only deleted documents
-     * by adding a { deletedAt : { $exists : true } } condition.
+     * Gets the array of scheduled document restores.
      *
-     * @param string $documentName The document class name to create the query builder for.
-     * @return Doctrine\MongoDB\ODM\Query\Builder $qb
+     * @return array $documentRestores
      */
-    public function createDeletedQueryBuilder($documentName = null)
+    public function getDocumentRestores()
     {
-        return $this->filterQueryBuilder(
-            self::QUERY_DELETED,
-            $this->dm->createQueryBuilder($documentName)
-        );
+        return $this->documentRestores;
     }
 
     /**
-     * Filter query builder instances to exclude deleted documents.
-     *
-     * @param string $type
-     * @param Builder $qb
-     */
-    public function filterQueryBuilder($type, Builder $qb)
-    {
-        switch ($type) {
-            case self::QUERY_DELETED:
-                $qb->field($this->config->getDeletedFieldName())->exists(true);
-                break;
-
-            case self::QUERY_NOT_DELETED:
-                $qb->field($this->config->getDeletedFieldName())->exists(false);
-                break;
-        }
-        return $qb;
-    }
-
-    /**
-     * Schedules a SoftDeleteable document for soft deletion on next flush().
+     * Checks if a given SoftDeleteable document instance is currently scheduled for delete.
      *
      * @param SoftDeleteable $document
      */
-    public function delete(SoftDeleteable $document)
+    public function isScheduledForDelete(SoftDeleteable $document)
     {
-        $this->unitOfWork->delete($document);
+        return isset($this->documentDeletes[spl_object_hash($document)]) ? true : false;
     }
 
     /**
-     * Schedulds a SoftDeleteable document for soft delete restoration on next flush().
+     * Checks if a given SoftDeleteable document instance is currently scheduled for restore.
      *
-     * @param SoftDeleteable $document 
+     * @param SoftDeleteable $document
+     */
+    public function isScheduledForRestore(SoftDeleteable $document)
+    {
+        return isset($this->documentRestores[spl_object_hash($document)]) ? true : false;
+    }
+
+    /**
+     * Gets or creates a Persister instance for the given class name.
+     *
+     * @param string $className
+     * @return Persister $persister
+     */
+    public function getDocumentPersister($className)
+    {
+        if (isset($this->persisters[$className])) {
+            return $this->persisters[$className];
+        }
+        $class = $this->dm->getClassMetadata($className);
+        $collection = $this->dm->getDocumentCollection($className);
+        $persister = $this->dm->getUnitOfWork()->getDocumentPersister($className);
+        $this->persisters[$className] = new Persister($this->configuration, $class, $collection, $persister);
+        return $this->persisters[$className];
+    }
+
+    /**
+     * Schedule some special criteria to delete some documents by.
+     *
+     * @param string $className
+     * @param array $criteria
+     */
+    public function deleteBy($className, array $criteria)
+    {
+        $this->deleteBy[$className][] = $criteria;
+    }
+
+    /**
+     * Schedule some special criteria to restore some documents by.
+     *
+     * @param string $className
+     * @param array $criteria
+     */
+    public function restoreBy($className, array $criteria)
+    {
+        $this->restoreBy[$className][] = $criteria;
+    }
+
+    /**
+     * Schedules a SoftDeleteable document instance for deletion on next flush.
+     *
+     * @param SoftDeleteable $document
+     * @throws InvalidArgumentException
+     */
+    public function delete(SoftDeleteable $document)
+    {
+        $oid = spl_object_hash($document);
+        if (isset($this->documentDeletes[$oid])) {
+            throw new InvalidArgumentException('Document is already scheduled for delete.');
+        }
+
+        // If scheduled for restore then remove it
+        unset($this->documentRestores[$oid]);
+
+        if ($this->eventManager->hasListeners(Events::preSoftDelete)) {
+            $this->eventManager->dispatchEvent(Events::preSoftDelete, new Event\LifecycleEventArgs($document, $this));
+        }
+
+        $this->documentDeletes[$oid] = $document;
+    }
+
+    /**
+     * Schedules a SoftDeleteable document instance for restoration on next flush.
+     *
+     * @param SoftDeleteable $document
+     * @throws InvalidArgumentException
      */
     public function restore(SoftDeleteable $document)
     {
-        $this->unitOfWork->restore($document);
+        $oid = spl_object_hash($document);
+        if (isset($this->documentRestores[$oid])) {
+            throw new InvalidArgumentException('Document is already scheduled for restore.');
+        }
+
+        // If scheduled for delete then remove it
+        unset($this->documentDeletes[$oid]);
+
+        if ($this->eventManager->hasListeners(Events::preRestore)) {
+            $this->eventManager->dispatchEvent(Events::preRestore, new Event\LifecycleEventArgs($document, $this));
+        }
+
+        $this->documentRestores[$oid] = $document;
     }
 
     /**
-     * Flushes all scheduled deletions and restorations to the database.
+     * Commits all the scheduled deletions and restorations to the database.
      */
     public function flush()
     {
-        $this->unitOfWork->commit();
+        // document deletes
+        if ($this->documentDeletes) {
+            $this->executeDeletes();
+        }
+
+        // document restores
+        if ($this->documentRestores) {
+            $this->executeRestores();
+        }
     }
 
     /**
-     * Clears the UnitOfWork and erases any currently scheduled deletions or restorations.
+     * Clears the UnitOfWork and forgets any currently scheduled deletions or restorations.
      */
     public function clear()
     {
-        $this->unitOfWork->clear();
+        $this->documentDeletes = array();
+        $this->documentRestores = array();
+    }
+
+    /**
+     * Executes the queued deletions.
+     */
+    private function executeDeletes()
+    {
+        $dateTime = new DateTime();
+        $mongoDate = new MongoDate($dateTime->getTimestamp());
+
+        $deletedFieldName = $this->configuration->getDeletedFieldName();
+
+        $persisters = array();
+        foreach ($this->deleteBy as $className => $criterias) {
+            $persister = $this->getDocumentPersister($className);
+            $persisters[$className] = $persister;
+            foreach ($criterias as $criteria) {
+                $persister->addDeleteBy($criteria);
+            }
+        }
+        $documentDeletes = array();
+        foreach ($this->documentDeletes as $document) {
+            $className = get_class($document);
+            $documentDeletes[$className][] = $document;
+            $persister = $this->getDocumentPersister($className);
+            $persisters[$className] = $persister;
+            $persister->addDelete($document);
+        }
+        foreach ($persisters as $className => $persister) {
+            $persister->executeDeletes($mongoDate);
+
+            $class = $this->dm->getClassMetadata($className);
+
+            if (isset($documentDeletes[$className])) {
+                $documents = $documentDeletes[$className];
+                foreach ($documents as $document) {
+                    $class->setFieldValue($document, $deletedFieldName, $dateTime);
+
+                    if ($this->eventManager->hasListeners(Events::postSoftDelete)) {
+                        $this->eventManager->dispatchEvent(Events::postSoftDelete, new Event\LifecycleEventArgs($document, $this));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Executes the queued restorations.
+     */
+    private function executeRestores()
+    {
+        $deletedFieldName = $this->configuration->getDeletedFieldName();
+
+        $persisters = array();
+        foreach ($this->restoreBy as $className => $criterias) {
+            $persister = $this->getDocumentPersister($className);
+            $persisters[$className] = $persister;
+            foreach ($criterias as $criteria) {
+                $persister->addRestoreBy($criteria);
+            }
+        }
+        $documentRestores = array();
+        foreach ($this->documentRestores as $document) {
+            $className = get_class($document);
+            $documentRestores[$className][] = $document;
+            $persister = $this->getDocumentPersister($className);
+            $persisters[$className] = $persister;
+            $persister->addRestore($document);
+        }
+        foreach ($persisters as $className => $persister) {
+            $persister->executeRestores();
+
+            $class = $this->dm->getClassMetadata($className);
+
+            if (isset($documentRestores[$className])) {
+                $documents = $documentRestores[$className];
+                foreach ($documents as $document) {
+                    $class->setFieldValue($document, $deletedFieldName, null);
+
+                    if ($this->eventManager->hasListeners(Events::postRestore)) {
+                        $this->eventManager->dispatchEvent(Events::postRestore, new Event\LifecycleEventArgs($document, $this));
+                    }
+                }
+            }
+        }
     }
 }

@@ -17,12 +17,7 @@ class SoftDeletableTest extends PHPUnit_Framework_TestCase
             ->method('getDeletedAt')
             ->will($this->returnValue($date));
 
-        $mockSoftDeleteable->expects($this->once())
-            ->method('isDeleted')
-            ->will($this->returnValue(true));
-
         $this->assertSame($date, $mockSoftDeleteable->getDeletedAt());
-        $this->assertTrue($mockSoftDeleteable->isDeleted());
     }
 
     private function getMockSoftDeleteable()

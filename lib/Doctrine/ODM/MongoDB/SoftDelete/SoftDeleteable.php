@@ -38,11 +38,4 @@ interface SoftDeleteable
      * @return DateTime $deletedAt
      */
     function getDeletedAt();
-
-    /**
-     * Checks whether this object is deleted or not.
-     *
-     * @return boolean $isDeleted
-     */
-    function isDeleted();
 }

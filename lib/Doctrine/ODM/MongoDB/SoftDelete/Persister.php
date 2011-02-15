@@ -20,6 +20,7 @@
 namespace Doctrine\ODM\MongoDB\SoftDelete;
 
 use Doctrine\ODM\MongoDB\DocumentManager;
+use Doctrine\ODM\MongoDB\Persisters\DocumentPersister;
 use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
 use Doctrine\MongoDB\Collection;
 use MongoDate;
@@ -49,11 +50,25 @@ class Persister
     private $collection;
 
     /**
+     * DocumentPersister instance this SoftDelete persister wraps.
+     *
+     * @var Doctrine\ODM\MongoDB\Persisters\DocumentPersister
+     */
+    private $persister;
+
+    /**
      * Array of queued documents to be deleted.
      *
      * @var array
      */
     private $queuedDeletes = array();
+
+    /**
+     * Array of custom criteria to delete by.
+     *
+     * @var array
+     */
+    private $deleteBy = array();
 
     /**
      * Array of queued documents to be restored.
@@ -63,17 +78,25 @@ class Persister
     private $queuedRestores = array();
 
     /**
+     * Array of custom criteria to restore by.
+     *
+     * @var array
+     */
+    private $restoreBy = array();
+
+    /**
      * Constructs a new Persister instance
      *
      * @param Configuration $configuration
      * @param ClassMetadata $class
      * @param Collection $collection
      */
-    public function __construct(Configuration $configuration, ClassMetadata $class, Collection $collection)
+    public function __construct(Configuration $configuration, ClassMetadata $class, Collection $collection, DocumentPersister $persister)
     {
         $this->configuration = $configuration;
         $this->class = $class;
         $this->collection = $collection;
+        $this->persister = $persister;
     }
 
     /**
@@ -117,6 +140,26 @@ class Persister
     }
 
     /**
+     * Add an array of criteria to delete by.
+     *
+     * @param array $criteria
+     */
+    public function addDeleteBy(array $criteria)
+    {
+        $this->deleteBy[] = $criteria;
+    }
+
+    /**
+     * Gets the array of criteria to delete by.
+     *
+     * @return array $criteria
+     */
+    public function getDeleteBy()
+    {
+        return $this->deleteBy;
+    }
+
+    /**
      * Add a SoftDeleteable document to the queued restores.
      *
      * @param SoftDeleteable $document
@@ -137,6 +180,26 @@ class Persister
     }
 
     /**
+     * Add an array of criteria to restore by.
+     *
+     * @param array $criteria
+     */
+    public function addRestoreBy(array $criteria)
+    {
+        $this->restoreBy[] = $criteria;
+    }
+
+    /**
+     * Gets the array of criteria to restore by.
+     *
+     * @return array $criteria
+     */
+    public function getRestoreBy()
+    {
+        return $this->restoreBy;
+    }
+
+    /**
      * Executes the queued deletes.
      *
      * @param MongoDate $date Date to the deleted field to. Mainly for testing.
@@ -153,17 +216,11 @@ class Persister
                 '$in' => $ids
             )
         );
-        $newObj = array(
-            '$set' => array(
-                $this->configuration->getDeletedFieldName() => $date ? $date : new MongoDate()
-            )
-        );
-
-        $this->collection->update($query, $newObj, array(
-            'multiple' => true,
-            'safe' => true
-        ));
-
+        $this->deleteQuery($query, $date);
+        foreach ($this->deleteBy as $criteria) {
+            $this->deleteQuery($criteria, $date);
+        }
+        $this->deleteBy = array();
         $this->queuedDeletes = array();
     }
 
@@ -182,16 +239,41 @@ class Persister
                 '$in' => $ids
             )
         );
+        $this->restoreQuery($query);
+        foreach ($this->restoreBy as $criteria) {
+            $this->restoreQuery($criteria);
+        }
+        $this->restoreBy = array();
+        $this->queuedRestores = array();
+    }
+
+    private function deleteQuery(array $query, MongoDate $date = null)
+    {
+        $newObj = array(
+            '$set' => array(
+                $this->configuration->getDeletedFieldName() => $date ? $date : new MongoDate()
+            )
+        );
+        return $this->query($query, $newObj);
+    }
+
+    private function restoreQuery(array $query)
+    {
         $newObj = array(
             '$unset' => array(
                 $this->configuration->getDeletedFieldName() => true
             )
         );
-        $this->collection->update($query, $newObj, array(
+        return $this->query($query, $newObj);
+    }
+
+    private function query(array $query, array $newObj)
+    {
+        $query = $this->persister->prepareQuery($query);
+        $result = $this->collection->update($query, $newObj, array(
             'multiple' => true,
             'safe' => true
         ));
-
-        $this->queuedRestores = array();
+        return $result;
     }
 }

@@ -4,7 +4,6 @@ namespace Doctrine\ODM\MongoDB\SoftDelete\Tests;
 
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Configuration as ODMConfiguration;
-use Doctrine\ODM\MongoDB\SoftDelete\UnitOfWork;
 use Doctrine\ODM\MongoDB\SoftDelete\Configuration;
 use Doctrine\ODM\MongoDB\SoftDelete\SoftDeleteManager;
 use Doctrine\ODM\MongoDB\SoftDelete\SoftDeleteable;
@@ -18,114 +17,87 @@ use PHPUnit_Framework_TestCase;
 
 class FunctionalTest extends PHPUnit_Framework_TestCase
 {
+    private $sdm;
+    private $dm;
+
     public function setUp()
     {
         $this->sdm = $this->getTestSoftDeleteManager();
         $this->dm = $this->sdm->getDocumentManager();
         $this->dm->getDocumentCollection(__NAMESPACE__.'\Seller')->drop();
+        $this->dm->getDocumentCollection(__NAMESPACE__.'\Sellable')->drop();
     }
 
     public function testDelete()
     {
-        $softDeleteable = $this->getTestSoftDeleteable('jwage');
-        $this->dm->persist($softDeleteable);
+        $seller = $this->getTestSeller('jwage');
+        $this->dm->persist($seller);
         $this->dm->flush();
 
-        $this->sdm->delete($softDeleteable);
+        $this->sdm->delete($seller);
         $this->sdm->flush();
 
-        $this->assertTrue($softDeleteable->isDeleted());
-        $this->assertInstanceOf('DateTime', $softDeleteable->getDeletedAt());
+        $this->assertInstanceOf('DateTime', $seller->getDeletedAt());
 
-        $check = $this->dm->getDocumentCollection(get_class($softDeleteable))->findOne();
+        $check = $this->dm->getDocumentCollection(get_class($seller))->findOne();
         $this->assertTrue(isset($check['deletedAt']));
         $this->assertInstanceOf('MongoDate', $check['deletedAt']);
     }
 
     public function testDeleteMultiple()
     {
-        $softDeleteable1 = $this->getTestSoftDeleteable('jwage1');
-        $softDeleteable2 = $this->getTestSoftDeleteable('jwage2');
-        $this->dm->persist($softDeleteable1);
-        $this->dm->persist($softDeleteable2);
+        $seller1 = $this->getTestSeller('jwage1');
+        $seller2 = $this->getTestSeller('jwage2');
+        $this->dm->persist($seller1);
+        $this->dm->persist($seller2);
         $this->dm->flush();
 
-        $this->sdm->delete($softDeleteable1);
-        $this->sdm->delete($softDeleteable2);
+        $this->sdm->delete($seller1);
+        $this->sdm->delete($seller2);
         $this->sdm->flush();
 
-        $this->assertTrue($softDeleteable1->isDeleted());
-        $this->assertInstanceOf('DateTime', $softDeleteable1->getDeletedAt());
-        $this->assertTrue($softDeleteable2->isDeleted());
-        $this->assertInstanceOf('DateTime', $softDeleteable2->getDeletedAt());
+        $this->assertInstanceOf('DateTime', $seller1->getDeletedAt());
+        $this->assertInstanceOf('DateTime', $seller2->getDeletedAt());
 
-        $check1 = $this->dm->getDocumentCollection(get_class($softDeleteable1))->findOne();
+        $check1 = $this->dm->getDocumentCollection(get_class($seller1))->findOne();
         $this->assertTrue(isset($check1['deletedAt']));
         $this->assertInstanceOf('MongoDate', $check1['deletedAt']);
 
-        $check2 = $this->dm->getDocumentCollection(get_class($softDeleteable2))->findOne();
+        $check2 = $this->dm->getDocumentCollection(get_class($seller2))->findOne();
         $this->assertTrue(isset($check2['deletedAt']));
         $this->assertInstanceOf('MongoDate', $check2['deletedAt']);
 
-        $this->sdm->restore($softDeleteable1);
-        $this->sdm->restore($softDeleteable2);
+        $this->sdm->restore($seller1);
+        $this->sdm->restore($seller2);
         $this->sdm->flush();
 
-        $check1 = $this->dm->getDocumentCollection(get_class($softDeleteable1))->findOne();
+        $check1 = $this->dm->getDocumentCollection(get_class($seller1))->findOne();
         $this->assertFalse(isset($check1['deletedAt']));
 
-        $check2 = $this->dm->getDocumentCollection(get_class($softDeleteable2))->findOne();
+        $check2 = $this->dm->getDocumentCollection(get_class($seller2))->findOne();
         $this->assertFalse(isset($check2['deletedAt']));
     }
 
     public function testRestore()
     {
-        $softDeleteable = $this->getTestSoftDeleteable('jwage');
-        $this->dm->persist($softDeleteable);
+        $seller = $this->getTestSeller('jwage');
+        $this->dm->persist($seller);
         $this->dm->flush();
 
-        $this->sdm->delete($softDeleteable);
+        $this->sdm->delete($seller);
         $this->sdm->flush();
 
-        $check = $this->dm->getDocumentCollection(get_class($softDeleteable))->findOne();
+        $check = $this->dm->getDocumentCollection(get_class($seller))->findOne();
         $this->assertTrue(isset($check['deletedAt']));
         $this->assertInstanceOf('MongoDate', $check['deletedAt']);
 
-        $this->sdm->restore($softDeleteable);
+        $this->sdm->restore($seller);
         $this->sdm->flush();
 
-        $this->assertFalse($softDeleteable->isDeleted());
-        $this->assertNull($softDeleteable->getDeletedAt());
+        $this->assertNull($seller->getDeletedAt());
 
-        $check = $this->dm->getDocumentCollection(get_class($softDeleteable))->findOne();
+        $check = $this->dm->getDocumentCollection(get_class($seller))->findOne();
         $this->assertFalse(isset($check['deletedAt']));
-    }
-
-    public function testCreateQueryBuilder()
-    {
-        $softDeleteable = $this->getTestSoftDeleteable('jwage');
-        $this->dm->persist($softDeleteable);
-        $this->dm->flush();
-
-        $check = $this->sdm->createQueryBuilder(get_class($softDeleteable))
-            ->getQuery()
-            ->getSingleResult();
-        $this->assertNotNull($check);
-
-        $this->sdm->delete($softDeleteable);
-        $this->sdm->flush();
-
-        $check = $this->sdm->createQueryBuilder(get_class($softDeleteable))
-            ->getQuery()
-            ->getSingleResult();
-        $this->assertNull($check);
-
-        $check = $this->sdm->createDeletedQueryBuilder(get_class($softDeleteable))
-            ->getQuery()
-            ->getSingleResult();
-        $this->assertNotNull($check);
-        $this->assertTrue($check->isDeleted());
-        $this->assertInstanceOf('DateTime', $check->getDeletedAt());
     }
 
     public function testEvents()
@@ -134,21 +106,78 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
         $eventSubscriber = new TestEventSubscriber();
         $eventManager->addEventSubscriber($eventSubscriber);
 
-        $softDeleteable = $this->getTestSoftDeleteable('jwage');
-        $this->dm->persist($softDeleteable);
+        $seller = $this->getTestSeller('jwage');
+        $this->dm->persist($seller);
         $this->dm->flush();
 
-        $this->sdm->delete($softDeleteable);
+        $this->sdm->delete($seller);
         $this->sdm->flush();
 
         $this->assertEquals(array('preSoftDelete', 'postSoftDelete'), $eventSubscriber->called);
 
         $eventSubscriber->called = array();
 
-        $this->sdm->restore($softDeleteable);
+        $this->sdm->restore($seller);
         $this->sdm->flush();
 
         $this->assertEquals(array('preRestore', 'postRestore'), $eventSubscriber->called);
+    }
+
+    public function testCascading()
+    {
+        $eventManager = $this->sdm->getEventManager();
+        $eventSubscriber = new TestCascadeDeleteAndRestore();
+        $eventManager->addEventSubscriber($eventSubscriber);
+
+        $seller = $this->getTestSeller('jwage');
+        $sellable1 = $this->getTestSellable($seller);
+        $sellable2 = $this->getTestSellable($seller);
+        $this->dm->persist($seller);
+        $this->dm->persist($sellable1);
+        $this->dm->persist($sellable2);
+        $this->dm->flush();
+
+        $this->sdm->delete($seller);
+        $this->sdm->flush();
+
+        $count = $this->dm->createQueryBuilder(get_class($seller))
+            ->field('deletedAt')->exists(false)
+            ->getQuery()
+            ->count();
+        $this->assertEquals(0, $count);
+
+        $count = $this->dm->createQueryBuilder(get_class($seller))
+            ->field('deletedAt')->exists(true)
+            ->getQuery()
+            ->count();
+        $this->assertEquals(1, $count);
+
+        $count = $this->dm->createQueryBuilder(get_class($sellable1))
+            ->field('deletedAt')->exists(false)
+            ->getQuery()
+            ->count();
+        $this->assertEquals(0, $count);
+
+        $count = $this->dm->createQueryBuilder(get_class($sellable1))
+            ->field('deletedAt')->exists(true)
+            ->getQuery()
+            ->count();
+        $this->assertEquals(2, $count);
+
+        $this->sdm->restore($seller);
+        $this->sdm->flush();
+
+        $count = $this->dm->createQueryBuilder(get_class($seller))
+            ->field('deletedAt')->exists(false)
+            ->getQuery()
+            ->count();
+        $this->assertEquals(1, $count);
+
+        $count = $this->dm->createQueryBuilder(get_class($sellable1))
+            ->field('deletedAt')->exists(false)
+            ->getQuery()
+            ->count();
+        $this->assertEquals(2, $count);
     }
 
     private function getTestDocumentManager()
@@ -165,22 +194,22 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
         $configuration->setMetadataDriverImpl($annotationDriver);
 
         $conn = new Connection(null, array(), $configuration);
-        return DocumentManager::create($conn, $configuration);
+        return DocumentManager::create($conn, null, $configuration);
     }
 
-    public function getTestSoftDeleteable($name)
+    public function getTestSeller($name)
     {
         return new Seller($name);
+    }
+
+    public function getTestSellable(Seller $seller)
+    {
+        return new Sellable($seller);
     }
 
     public function getTestConfiguration()
     {
         return new Configuration();
-    }
-
-    public function getTestUnitOfWork(DocumentManager $dm, Configuration $configuration)
-    {
-        return new UnitOfWork($dm, $configuration);
     }
 
     public function getTestEventManager()
@@ -192,9 +221,37 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
     {
         $dm = $this->getTestDocumentManager();
         $configuration = $this->getTestConfiguration();
-        $unitOfWork = $this->getTestUnitOfWork($dm, $configuration);
         $eventManager = $this->getTestEventManager();
-        return new SoftDeleteManager($dm, $configuration, $unitOfWork, $eventManager);
+        return new SoftDeleteManager($dm, $configuration, $eventManager);
+    }
+}
+
+class TestCascadeDeleteAndRestore implements \Doctrine\Common\EventSubscriber
+{
+    public function preSoftDelete(LifecycleEventArgs $args)
+    {
+        $sdm = $args->getSoftDeleteManager();
+        $document = $args->getDocument();
+        if ($document instanceof Seller) {
+            $sdm->deleteBy(__NAMESPACE__.'\Sellable', array('seller.id' => $document->getId()));
+        }
+    }
+
+    public function preRestore(LifecycleEventArgs $args)
+    {
+        $sdm = $args->getSoftDeleteManager();
+        $document = $args->getDocument();
+        if ($document instanceof Seller) {
+            $sdm->restoreBy(__NAMESPACE__.'\Sellable', array('seller.id' => $document->getId()));
+        }
+    }
+
+    public function getSubscribedEvents()
+    {
+        return array(
+            Events::preSoftDelete,
+            Events::preRestore
+        );
     }
 }
 
@@ -250,6 +307,11 @@ class Seller implements SoftDeleteable
         $this->name = $name;
     }
 
+    public function getId()
+    {
+        return $this->id;
+    }
+
     public function getName()
     {
         return $this->name;
@@ -259,9 +321,37 @@ class Seller implements SoftDeleteable
     {
         return $this->deletedAt;
     }
+}
 
-    public function isDeleted()
+/** @Document */
+class Sellable implements SoftDeleteable
+{
+    /** @Id */
+    private $id;
+
+    /** @Date @Index */
+    private $deletedAt;
+
+    /** @ReferenceOne(targetDocument="Seller") */
+    private $seller;
+
+    public function __construct(Seller $seller)
     {
-        return $this->deletedAt !== null ? true : false;
+        $this->seller = $seller;
+    }
+
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    public function getSeller()
+    {
+        return $this->seller;
+    }
+
+    public function getDeletedAt()
+    {
+        return $this->deletedAt;
     }
 }

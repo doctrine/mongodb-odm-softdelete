@@ -14,9 +14,8 @@ instance:
     // $dm is a DocumentManager instance we should already have
 
     $config = new Configuration();
-    $uow = new UnitOfWork($dm, $config);
     $evm = new EventManager();
-    $sdm = new SoftDeleteManager($dm, $config, $uow, $evm);
+    $sdm = new SoftDeleteManager($dm, $config, $evm);
 
 ## SoftDelete Documents
 
@@ -26,7 +25,6 @@ SoftDeleteable interface:
     interface SoftDeleteable
     {
         function getDeletedAt();
-        function isDeleted();
     }
 
 An implementation might look like this:
@@ -44,11 +42,6 @@ An implementation might look like this:
         public function getDeletedAt()
         {
             return $this->deletedAt;
-        }
-    
-        public function isDeleted()
-        {
-            return $this->deletedAt !== null ? true : false;
         }
 
         // ...
@@ -113,22 +106,43 @@ to the database:
     $sdm->delete($fabpot);
     $sdm->flush();
 
-## Querying for Documents
+## Cascading Soft Deletes
 
-Create a query builder that excludes deleted documents:
+You can easily implement cascading soft deletes by using events in a certain way. Imagine you have a
+User and Post document and you want to soft delete a users posts when you delete him.
 
-    $qb = $sdm->createQueryBuilder();
+You just need to setup an event listener like the following:
 
-Create a query builder that returns only deleted documents:
+    use Doctrine\Common\EventSubscriber;
 
-    $qb = $sdm->createDeletedQueryBuilder();
+    class CascadingSoftDeleteListener implements EventSubscriber
+    {
+        public function preSoftDelete(LifecycleEventArgs $args)
+        {
+            $sdm = $args->getSoftDeleteManager();
+            $document = $args->getDocument();
+            if ($document instanceof User) {
+                $sdm->deleteBy('Post', array('user.id' => $document->getId()));
+            }
+        }
 
-If you want to modify an existing query builder to only return not deleted documents, or to only return
-deleted documents, you can use the filterQueryBuilder() method:
+        public function preRestore(LifecycleEventArgs $args)
+        {
+            $sdm = $args->getSoftDeleteManager();
+            $document = $args->getDocument();
+            if ($document instanceof User) {
+                $sdm->restoreBy('Post', array('user.id' => $document->getId()));
+            }
+        }
 
-    $qb = $dm->createQueryBuilder();
-    $sdm->filterQueryBuilder(SoftDeleteManager::QUERY_NOT_DELETED, $qb);
+        public function getSubscribedEvents()
+        {
+            return array(
+                Events::preSoftDelete,
+                Events::preRestore
+            );
+        }
+    }
 
-Or you can show only deleted:
-
-    $sdm->filterQueryBuilder(SoftDeleteManager::QUERY_DELETED, $qb);
+Now when you delete an instance of User it will also delete any Post documents where they reference
+the User being deleted. If you restore the User, his Post documents will also be restored.

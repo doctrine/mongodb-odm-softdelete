@@ -6,6 +6,7 @@ use PHPUnit_Framework_TestCase;
 use Doctrine\ODM\MongoDB\SoftDelete\Persister;
 use Doctrine\ODM\MongoDB\SoftDelete\Configuration;
 use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
+use Doctrine\ODM\MongoDB\Persisters\DocumentPersister;
 use Doctrine\MongoDB\Collection;
 use MongoDate;
 
@@ -16,7 +17,8 @@ class PersisterTest extends PHPUnit_Framework_TestCase
         $class = $this->getMockClassMetadata();
         $collection = $this->getMockCollection();
         $configuration = $this->getMockConfiguration();
-        $persister = $this->getTestPersister($configuration, $class, $collection);
+        $documentPersister = $this->getMockDocumentPersister();
+        $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
         $this->assertSame($class, $persister->getClass());
         $this->assertSame($collection, $persister->getCollection());
     }
@@ -26,7 +28,8 @@ class PersisterTest extends PHPUnit_Framework_TestCase
         $class = $this->getMockClassMetadata();
         $collection = $this->getMockCollection();
         $configuration = $this->getMockConfiguration();
-        $persister = $this->getTestPersister($configuration, $class, $collection);
+        $documentPersister = $this->getMockDocumentPersister();
+        $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
         $mockSoftDeleteable = $this->getMockSoftDeletable();
         $persister->addDelete($mockSoftDeleteable);
 
@@ -39,7 +42,9 @@ class PersisterTest extends PHPUnit_Framework_TestCase
         $class = $this->getMockClassMetadata();
         $collection = $this->getMockCollection();
         $configuration = $this->getMockConfiguration();
-        $persister = $this->getTestPersister($configuration, $class, $collection);        $mockSoftDeleteable = $this->getMockSoftDeletable();
+        $documentPersister = $this->getMockDocumentPersister();
+        $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
+        $mockSoftDeleteable = $this->getMockSoftDeletable();
         $persister->addRestore($mockSoftDeleteable);
 
         $expects = array(spl_object_hash($mockSoftDeleteable) => $mockSoftDeleteable);
@@ -58,11 +63,12 @@ class PersisterTest extends PHPUnit_Framework_TestCase
 
         $date = new MongoDate();
 
+        $query = array('_id' => array('$in' => array(1)));
         $collection = $this->getMockCollection();
         $collection->expects($this->once())
             ->method('update')
             ->with(
-                array('_id' => array('$in' => array(1))),
+                $query,
                 array('$set' => array(
                     'deletedAt' => $date
                 )),
@@ -77,7 +83,11 @@ class PersisterTest extends PHPUnit_Framework_TestCase
             ->method('getDeletedFieldName')
             ->will($this->returnValue('deletedAt'));
 
-        $persister = $this->getTestPersister($configuration, $class, $collection);
+        $documentPersister = $this->getMockDocumentPersister();
+        $documentPersister->expects($this->once())
+            ->method('prepareQuery')
+            ->will($this->returnValue($query));
+        $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
         $persister->addDelete($mockSoftDeleteable);
         $persister->executeDeletes($date);
     }
@@ -92,11 +102,12 @@ class PersisterTest extends PHPUnit_Framework_TestCase
             ->with($mockSoftDeleteable)
             ->will($this->returnValue(1));
 
+        $query = array('_id' => array('$in' => array(1)));
         $collection = $this->getMockCollection();
         $collection->expects($this->once())
             ->method('update')
             ->with(
-                array('_id' => array('$in' => array(1))),
+                $query,
                 array('$unset' => array(
                     'deletedAt' => true
                 )),
@@ -111,7 +122,11 @@ class PersisterTest extends PHPUnit_Framework_TestCase
             ->method('getDeletedFieldName')
             ->will($this->returnValue('deletedAt'));
 
-        $persister = $this->getTestPersister($configuration, $class, $collection);
+        $documentPersister = $this->getMockDocumentPersister();
+        $documentPersister->expects($this->once())
+            ->method('prepareQuery')
+            ->will($this->returnValue($query));
+        $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
         $persister->addRestore($mockSoftDeleteable);
         $persister->executeRestores();
     }
@@ -144,8 +159,15 @@ class PersisterTest extends PHPUnit_Framework_TestCase
             ->getMock();
     }
 
-    private function getTestPersister(Configuration $configuration, ClassMetadata $class, Collection $collection)
+    private function getMockDocumentPersister()
     {
-        return new Persister($configuration, $class, $collection);
+        return $this->getMockBuilder('Doctrine\ODM\MongoDB\Persisters\DocumentPersister')
+            ->disableOriginalConstructor()
+            ->getMock();
+    }
+
+    private function getTestPersister(Configuration $configuration, ClassMetadata $class, Collection $collection, DocumentPersister $persister)
+    {
+        return new Persister($configuration, $class, $collection, $persister);
     }
 }
