@@ -216,9 +216,10 @@ class Persister
                 '$in' => $ids
             )
         );
-        $this->deleteQuery($query, $date);
-        foreach ($this->deleteBy as $criteria) {
-            $this->deleteQuery($criteria, $date);
+        $this->deleteQuery($query, array(), $date);
+        foreach ($this->deleteBy as $deleteBy) {
+            list($criteria, $flags) = $deleteBy;
+            $this->deleteQuery($criteria, $flags, $date);
         }
         $this->deleteBy = array();
         $this->queuedDeletes = array();
@@ -239,31 +240,43 @@ class Persister
                 '$in' => $ids
             )
         );
-        $this->restoreQuery($query);
-        foreach ($this->restoreBy as $criteria) {
-            $this->restoreQuery($criteria);
+        $this->restoreQuery($query, array());
+        foreach ($this->restoreBy as $restoreBy) {
+            list($criteria, $flags) = $restoreBy;
+            $this->restoreQuery($criteria, $flags);
         }
         $this->restoreBy = array();
         $this->queuedRestores = array();
     }
 
-    private function deleteQuery(array $query, MongoDate $date = null)
+    private function deleteQuery(array $query, array $flags, MongoDate $date = null)
     {
+        $deletedFieldName = $this->configuration->getDeletedFieldName();
         $newObj = array(
             '$set' => array(
-                $this->configuration->getDeletedFieldName() => $date ? $date : new MongoDate()
+                $deletedFieldName => $date ? $date : new MongoDate()
             )
         );
+        foreach ($flags as $fieldName => $value) {
+            $newObj['$set'][$fieldName] = $value;
+        }
+        $query[$deletedFieldName] = array('$exists' => false);
         return $this->query($query, $newObj);
     }
 
-    private function restoreQuery(array $query)
+    private function restoreQuery(array $query, array $flags)
     {
+        $deletedFieldName = $this->configuration->getDeletedFieldName();
         $newObj = array(
             '$unset' => array(
-                $this->configuration->getDeletedFieldName() => true
+                $deletedFieldName => true
             )
         );
+        foreach ($flags as $fieldName => $value) {
+            $newObj['$unset'][$fieldName] = true;
+            $query[$fieldName] = $value;
+        }
+        $query[$deletedFieldName] = array('$exists' => true);
         return $this->query($query, $newObj);
     }
 

@@ -195,23 +195,25 @@ class SoftDeleteManager
     /**
      * Schedule some special criteria to delete some documents by.
      *
-     * @param string $className
-     * @param array $criteria
+     * @param string $className The class name to delete by.
+     * @param array $criteria The array of criteria to delete from the classes collection.
+     * @param array $flags The array of flags to set on the deleted documents which distinguish this delete.
      */
-    public function deleteBy($className, array $criteria)
+    public function deleteBy($className, array $criteria, array $flags = array())
     {
-        $this->deleteBy[$className][] = $criteria;
+        $this->deleteBy[$className][] = array($criteria, $flags);
     }
 
     /**
      * Schedule some special criteria to restore some documents by.
      *
-     * @param string $className
-     * @param array $criteria
+     * @param string $className The class name to restore by.
+     * @param array $criteria The array of criteria to restore from the classes collection.
+     * @param array $flags The array of flags to limit the restored documents to.
      */
-    public function restoreBy($className, array $criteria)
+    public function restoreBy($className, array $criteria, array $flags = array())
     {
-        $this->restoreBy[$className][] = $criteria;
+        $this->restoreBy[$className][] = array($criteria, $flags);
     }
 
     /**

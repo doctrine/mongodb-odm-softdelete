@@ -132,11 +132,14 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
         $seller = $this->getTestSeller('jwage');
         $sellable1 = $this->getTestSellable($seller);
         $sellable2 = $this->getTestSellable($seller);
+        $sellable3 = $this->getTestSellable($seller);
         $this->dm->persist($seller);
         $this->dm->persist($sellable1);
         $this->dm->persist($sellable2);
+        $this->dm->persist($sellable3);
         $this->dm->flush();
 
+        $this->sdm->delete($sellable3);
         $this->sdm->delete($seller);
         $this->sdm->flush();
 
@@ -162,7 +165,7 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
             ->field('deletedAt')->exists(true)
             ->getQuery()
             ->count();
-        $this->assertEquals(2, $count);
+        $this->assertEquals(3, $count);
 
         $this->sdm->restore($seller);
         $this->sdm->flush();
@@ -231,18 +234,28 @@ class TestCascadeDeleteAndRestore implements \Doctrine\Common\EventSubscriber
     public function preSoftDelete(LifecycleEventArgs $args)
     {
         $sdm = $args->getSoftDeleteManager();
+        $dm = $sdm->getDocumentManager();
         $document = $args->getDocument();
         if ($document instanceof Seller) {
-            $sdm->deleteBy(__NAMESPACE__.'\Sellable', array('seller.id' => $document->getId()));
+            $sdm->deleteBy(
+                __NAMESPACE__.'\Sellable',
+                array('seller.id' => $document->getId()),
+                array('cascadeDeletedBy' => $dm->createDBRef($document))
+            );
         }
     }
 
     public function preRestore(LifecycleEventArgs $args)
     {
         $sdm = $args->getSoftDeleteManager();
+        $dm = $sdm->getDocumentManager();
         $document = $args->getDocument();
         if ($document instanceof Seller) {
-            $sdm->restoreBy(__NAMESPACE__.'\Sellable', array('seller.id' => $document->getId()));
+            $sdm->restoreBy(
+                __NAMESPACE__.'\Sellable',
+                array('seller.id' => $document->getId()),
+                array('cascadeDeletedBy' => $dm->createDbRef($document))
+            );
         }
     }
 
