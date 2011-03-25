@@ -260,7 +260,7 @@ class Persister
         foreach ($flags as $fieldName => $value) {
             $newObj['$set'][$fieldName] = $value;
         }
-        $query[$deletedFieldName] = array('$exists' => false);
+        $query[$deletedFieldName] = null;
         return $this->query($query, $newObj);
     }
 
@@ -276,7 +276,7 @@ class Persister
             $newObj['$unset'][$fieldName] = true;
             $query[$fieldName] = $value;
         }
-        $query[$deletedFieldName] = array('$exists' => true);
+        $query[$deletedFieldName] = array('$lt' => new \MongoDate());
         return $this->query($query, $newObj);
     }
 
