@@ -74,7 +74,7 @@ class PersisterTest extends PHPUnit_Framework_TestCase
                 )),
                 array(
                     'multiple' => true,
-                    'safe' => true
+                    'fsync' => true
                 )
             );
 
@@ -113,7 +113,7 @@ class PersisterTest extends PHPUnit_Framework_TestCase
                 )),
                 array(
                     'multiple' => true,
-                    'safe' => true
+                    'fsync' => true
                 )
             );
 
