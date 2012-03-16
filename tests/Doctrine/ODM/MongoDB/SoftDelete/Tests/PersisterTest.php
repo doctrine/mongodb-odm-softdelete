@@ -73,8 +73,7 @@ class PersisterTest extends PHPUnit_Framework_TestCase
                     'deletedAt' => $date
                 )),
                 array(
-                    'multiple' => true,
-                    'fsync' => true
+                    'multiple' => true
                 )
             );
 
@@ -112,8 +111,7 @@ class PersisterTest extends PHPUnit_Framework_TestCase
                     'deletedAt' => true
                 )),
                 array(
-                    'multiple' => true,
-                    'fsync' => true
+                    'multiple' => true
                 )
             );
 

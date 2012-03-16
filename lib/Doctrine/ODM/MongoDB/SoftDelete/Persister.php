@@ -284,8 +284,7 @@ class Persister
     {
         $query = $this->persister->prepareQuery($query);
         $result = $this->collection->update($query, $newObj, array(
-            'multiple' => true,
-            'fsync' => true
+            'multiple' => true
         ));
         return $result;
     }
