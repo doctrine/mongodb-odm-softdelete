@@ -226,7 +226,7 @@ class SoftDeleteManager
     {
         $oid = spl_object_hash($document);
         if (isset($this->documentDeletes[$oid])) {
-            throw new InvalidArgumentException('Document is already scheduled for delete.');
+            throw new \InvalidArgumentException('Document is already scheduled for delete.');
         }
 
         // If scheduled for restore then remove it
@@ -249,7 +249,7 @@ class SoftDeleteManager
     {
         $oid = spl_object_hash($document);
         if (isset($this->documentRestores[$oid])) {
-            throw new InvalidArgumentException('Document is already scheduled for restore.');
+            throw new \InvalidArgumentException('Document is already scheduled for restore.');
         }
 
         // If scheduled for delete then remove it
