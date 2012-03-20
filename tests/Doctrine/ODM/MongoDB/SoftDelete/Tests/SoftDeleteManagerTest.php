@@ -10,47 +10,51 @@ use PHPUnit_Framework_TestCase;
 
 class SoftDeleteManagerTest extends PHPUnit_Framework_TestCase
 {
+    private $dm;
+    private $configuration;
+    private $eventManager;
+    private $softDeleteable;
+    private $sdm;
+
+    protected function setUp()
+    {
+        $this->dm = $this->getMockDocumentManager();
+        $this->configuration = $this->getMockConfiguration();
+        $this->eventManager = $this->getMockEventManager();
+        $this->softDeleteable = $this->getMockSoftDeletable();
+        $this->sdm = new SoftDeleteManager($this->dm, $this->configuration, $this->eventManager);
+    }
+
     public function testConstructor()
     {
-        $dm = $this->getMockDocumentManager();
-        $configuration = $this->getMockConfiguration();
-        $eventManager = $this->getMockEventManager();
-        $uow = $this->getTestSoftDeleteManager($dm, $configuration, $eventManager);
-        $this->assertSame($dm, $uow->getDocumentManager());
+        $this->assertSame($this->dm, $this->sdm->getDocumentManager());
+        $this->assertSame($this->configuration, $this->sdm->getConfiguration());
+        $this->assertSame($this->eventManager, $this->sdm->getEventManager());
     }
 
     public function testDelete()
     {
-        $mockSoftDeleteable = $this->getMockSoftDeletable();
-        $dm = $this->getMockDocumentManager();
-        $configuration = $this->getMockConfiguration();
-        $eventManager = $this->getMockEventManager();
-        $uow = $this->getTestSoftDeleteManager($dm, $configuration, $eventManager);
-        $uow->delete($mockSoftDeleteable);
-        $this->assertTrue($uow->isScheduledForDelete($mockSoftDeleteable));
+        $this->sdm->delete($this->softDeleteable);
+        $this->assertTrue($this->sdm->isScheduledForDelete($this->softDeleteable));
+
+        $deletes = $this->sdm->getDocumentDeletes();
+        $this->sdm->delete($this->softDeleteable);
+        $this->assertEquals($deletes, $this->sdm->getDocumentDeletes(), 'Delete of already scheduled document does nothing');
     }
 
     public function testRestore()
     {
-        $mockSoftDeleteable = $this->getMockSoftDeletable();
-        $dm = $this->getMockDocumentManager();
-        $configuration = $this->getMockConfiguration();
-        $eventManager = $this->getMockEventManager();
-        $uow = $this->getTestSoftDeleteManager($dm, $configuration, $eventManager);
-        $uow->restore($mockSoftDeleteable);
-        $this->assertTrue($uow->isScheduledForRestore($mockSoftDeleteable));
-    }
+        $this->sdm->restore($this->softDeleteable);
+        $this->assertTrue($this->sdm->isScheduledForRestore($this->softDeleteable));
 
-    private function getTestSoftDeleteManager(DocumentManager $dm, Configuration $configuration, EventManager $eventManager)
-    {
-        return new SoftDeleteManager($dm, $configuration, $eventManager);
+        $restores = $this->sdm->getDocumentRestores();
+        $this->sdm->restore($this->softDeleteable);
+        $this->assertEquals($restores, $this->sdm->getDocumentRestores(), 'Restore of already scheduled document does nothing');
     }
 
     private function getMockConfiguration()
     {
-        return $this->getMockBuilder('Doctrine\ODM\MongoDB\SoftDelete\Configuration')
-            ->disableOriginalConstructor()
-            ->getMock();
+        return $this->getMock('Doctrine\ODM\MongoDB\SoftDelete\Configuration');
     }
 
     private function getMockDocumentManager()
@@ -62,9 +66,7 @@ class SoftDeleteManagerTest extends PHPUnit_Framework_TestCase
 
     private function getMockSoftDeletable()
     {
-        return $this->getMockBuilder('Doctrine\ODM\MongoDB\SoftDelete\SoftDeleteable')
-            ->disableOriginalConstructor()
-            ->getMock();
+        return $this->getMock('Doctrine\ODM\MongoDB\SoftDelete\SoftDeleteable');
     }
 
     private function getMockEventManager()
