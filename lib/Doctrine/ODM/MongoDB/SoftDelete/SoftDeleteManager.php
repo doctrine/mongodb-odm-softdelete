@@ -220,13 +220,12 @@ class SoftDeleteManager
      * Schedules a SoftDeleteable document instance for deletion on next flush.
      *
      * @param SoftDeleteable $document
-     * @throws InvalidArgumentException
      */
     public function delete(SoftDeleteable $document)
     {
         $oid = spl_object_hash($document);
         if (isset($this->documentDeletes[$oid])) {
-            throw new \InvalidArgumentException('Document is already scheduled for delete.');
+            return;
         }
 
         // If scheduled for restore then remove it
@@ -243,13 +242,12 @@ class SoftDeleteManager
      * Schedules a SoftDeleteable document instance for restoration on next flush.
      *
      * @param SoftDeleteable $document
-     * @throws InvalidArgumentException
      */
     public function restore(SoftDeleteable $document)
     {
         $oid = spl_object_hash($document);
         if (isset($this->documentRestores[$oid])) {
-            throw new \InvalidArgumentException('Document is already scheduled for restore.');
+            return;
         }
 
         // If scheduled for delete then remove it

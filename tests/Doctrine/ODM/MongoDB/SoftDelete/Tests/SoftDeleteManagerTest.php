@@ -36,12 +36,20 @@ class SoftDeleteManagerTest extends PHPUnit_Framework_TestCase
     {
         $this->sdm->delete($this->softDeleteable);
         $this->assertTrue($this->sdm->isScheduledForDelete($this->softDeleteable));
+
+        $deletes = $this->sdm->getDocumentDeletes();
+        $this->sdm->delete($this->softDeleteable);
+        $this->assertEquals($deletes, $this->sdm->getDocumentDeletes(), 'Delete of already scheduled document does nothing');
     }
 
     public function testRestore()
     {
         $this->sdm->restore($this->softDeleteable);
         $this->assertTrue($this->sdm->isScheduledForRestore($this->softDeleteable));
+
+        $restores = $this->sdm->getDocumentRestores();
+        $this->sdm->restore($this->softDeleteable);
+        $this->assertEquals($restores, $this->sdm->getDocumentRestores(), 'Restore of already scheduled document does nothing');
     }
 
     private function getMockConfiguration()
