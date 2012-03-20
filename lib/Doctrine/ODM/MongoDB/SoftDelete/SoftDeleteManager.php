@@ -27,7 +27,7 @@ use MongoDate;
 
 /**
  * The SoftDeleteManager class is responsible for managing the deleted state of a SoftDeleteable instance.
- * 
+ *
  * @license     http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link        www.doctrine-project.com
  * @since       1.0
