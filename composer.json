@@ -1,0 +1,18 @@
+{
+    "name": "doctrine/mongodb-odm-softdelete",
+    "type": "library",
+    "description": "Doctrine MongoDB MongoDB SoftDelete Library",
+    "keywords": ["softdelete", "persistence", "mongodb"],
+    "homepage": "http://www.doctrine-project.org",
+    "license": "LGPL",
+    "authors": [
+        {"name": "Jonathan H. Wage", "email": "jonwage@gmail.com"},
+    ],
+    "require": {
+        "php": ">=5.3.2",
+        "doctrine/mongodb-odm": "*"
+    },
+    "autoload": {
+        "psr-0": { "Doctrine\\ODM\\MongoDB\\SoftDelete": "lib/" }
+    }
+}
