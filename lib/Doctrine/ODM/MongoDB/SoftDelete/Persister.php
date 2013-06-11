@@ -282,7 +282,7 @@ class Persister
 
     private function query(array $query, array $newObj)
     {
-        $query = $this->persister->prepareQuery($query);
+        $query = $this->persister->prepareQueryOrNewObj($query);
         $result = $this->collection->update($query, $newObj, array(
             'multiple' => true
         ));
