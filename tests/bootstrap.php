@@ -1,20 +1,7 @@
 <?php
 
-require_once __DIR__ . '/../lib/vendor/doctrine-common/lib/Doctrine/Common/ClassLoader.php';
+use Doctrine\Common\Annotations\AnnotationRegistry;
 
-use Doctrine\Common\ClassLoader;
+$loader = include __DIR__.'/../vendor/autoload.php';
 
-$classLoader = new ClassLoader('Doctrine\ODM\MongoDB\SoftDelete\Tests', __DIR__);
-$classLoader->register();
-
-$classLoader = new ClassLoader('Doctrine\ODM\MongoDB\SoftDelete', __DIR__ . '/../lib');
-$classLoader->register();
-
-$classLoader = new ClassLoader('Doctrine\ODM\MongoDB', __DIR__ . '/../lib/vendor/doctrine-mongodb-odm/lib');
-$classLoader->register();
-
-$classLoader = new ClassLoader('Doctrine\MongoDB', __DIR__ . '/../lib/vendor/doctrine-mongodb/lib');
-$classLoader->register();
-
-$classLoader = new ClassLoader('Doctrine\Common', __DIR__ . '/../lib/vendor/doctrine-common/lib');
-$classLoader->register();
+AnnotationRegistry::registerLoader(array($loader, 'loadClass'));

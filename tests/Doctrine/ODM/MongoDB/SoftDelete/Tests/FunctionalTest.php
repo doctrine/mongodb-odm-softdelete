@@ -2,6 +2,7 @@
 
 namespace Doctrine\ODM\MongoDB\SoftDelete\Tests;
 
+use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Configuration as ODMConfiguration;
 use Doctrine\ODM\MongoDB\SoftDelete\Configuration;
@@ -190,14 +191,10 @@ class FunctionalTest extends PHPUnit_Framework_TestCase
         $configuration->setHydratorNamespace('TestHydrator');
         $configuration->setProxyDir(__DIR__);
         $configuration->setProxyNamespace('TestProxy');
-
-        $reader = new AnnotationReader();
-        $reader->setDefaultAnnotationNamespace('Doctrine\ODM\MongoDB\Mapping\\');
-        $annotationDriver = new AnnotationDriver($reader, __DIR__ . '/Documents');
-        $configuration->setMetadataDriverImpl($annotationDriver);
+        $configuration->setMetadataDriverImpl($configuration->newDefaultAnnotationDriver());
 
         $conn = new Connection(null, array(), $configuration);
-        return DocumentManager::create($conn, null, $configuration);
+        return DocumentManager::create($conn, $configuration);
     }
 
     public function getTestSeller($name)
@@ -303,16 +300,16 @@ class TestEventSubscriber implements \Doctrine\Common\EventSubscriber
     }
 }
 
-/** @Document */
+/** @ODM\Document */
 class Seller implements SoftDeleteable
 {
-    /** @Id */
+    /** @ODM\Id */
     private $id;
 
-    /** @Date @Index */
+    /** @ODM\Date @ODM\Index */
     private $deletedAt;
 
-    /** @String */
+    /** @ODM\String */
     private $name;
 
     public function __construct($name)
@@ -336,16 +333,16 @@ class Seller implements SoftDeleteable
     }
 }
 
-/** @Document */
+/** @ODM\Document */
 class Sellable implements SoftDeleteable
 {
-    /** @Id */
+    /** @ODM\Id */
     private $id;
 
-    /** @Date @Index */
+    /** @ODM\Date @ODM\Index */
     private $deletedAt;
 
-    /** @ReferenceOne(targetDocument="Seller") */
+    /** @ODM\ReferenceOne(targetDocument="Seller") */
     private $seller;
 
     public function __construct(Seller $seller)

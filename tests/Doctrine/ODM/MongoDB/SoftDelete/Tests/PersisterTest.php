@@ -84,7 +84,7 @@ class PersisterTest extends PHPUnit_Framework_TestCase
 
         $documentPersister = $this->getMockDocumentPersister();
         $documentPersister->expects($this->once())
-            ->method('prepareQuery')
+            ->method('prepareQueryOrNewObj')
             ->will($this->returnValue($query));
         $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
         $persister->addDelete($mockSoftDeleteable);
@@ -122,7 +122,7 @@ class PersisterTest extends PHPUnit_Framework_TestCase
 
         $documentPersister = $this->getMockDocumentPersister();
         $documentPersister->expects($this->once())
-            ->method('prepareQuery')
+            ->method('prepareQueryOrNewObj')
             ->will($this->returnValue($query));
         $persister = $this->getTestPersister($configuration, $class, $collection, $documentPersister);
         $persister->addRestore($mockSoftDeleteable);

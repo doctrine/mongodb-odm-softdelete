@@ -14,5 +14,6 @@
     },
     "autoload": {
         "psr-0": { "Doctrine\\ODM\\MongoDB\\SoftDelete": "lib/" }
-    }
+    },
+    "minimum-stability": "dev"
 }
