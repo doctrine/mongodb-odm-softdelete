@@ -266,12 +266,12 @@ class SoftDeleteManager
     public function flush()
     {
         // document deletes
-        if ($this->documentDeletes) {
+        if ($this->documentDeletes || $this->deleteBy) {
             $this->executeDeletes();
         }
 
         // document restores
-        if ($this->documentRestores) {
+        if ($this->documentRestores || $this->restoreBy) {
             $this->executeRestores();
         }
     }
